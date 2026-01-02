@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "lucro-ride",
+    "slug": "lucro-ride",
+    "scheme": "lucro-ride",
+    "platforms": ["ios", "android"],
+    "orientation": "portrait",
+    "newArchEnabled": true
+  }
+}
