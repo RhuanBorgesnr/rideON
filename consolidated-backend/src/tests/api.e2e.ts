@@ -1,6 +1,6 @@
 import http from 'http';
 import app from '../app';
-import { prisma } from '../prisma/client';
+import { prisma } from '../lib/prisma';
 
 type TestResult = {
   name: string;
@@ -301,4 +301,3 @@ async function run() {
 }
 
 run();
-

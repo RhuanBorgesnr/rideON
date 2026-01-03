@@ -1,4 +1,4 @@
-import { prisma } from '../prisma/client';
+import { prisma } from '../lib/prisma';
 
 async function main() {
   if (!process.env.DATABASE_URL) {

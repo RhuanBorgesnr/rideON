@@ -5,6 +5,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import InputField from '../components/InputField';
 import Button from '../components/Button';
 import WorkDayService from '../services/WorkDayService';
+import { handleApiError } from '../utils/apiError';
 
 interface ExpenseScreenProps {
   navigation: any;
@@ -31,8 +32,8 @@ const ExpenseScreen: React.FC<ExpenseScreenProps> = ({ route, navigation }) => {
       await WorkDayService.addExpense(workDayId, type, Number(amount));
       Alert.alert('Sucesso', 'Despesa adicionada');
       navigation.goBack();
-    } catch (error) {
-      Alert.alert('Erro', 'Falha ao adicionar despesa');
+    } catch (error: any) {
+      Alert.alert('Erro', handleApiError(error));
     }
   };
 

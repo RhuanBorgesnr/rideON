@@ -1,4 +1,4 @@
-import { prisma } from '../prisma/client';
+import { prisma } from '../lib/prisma';
 import { WorkDay, Expense, Ride } from '@prisma/client';
 
 export class WorkDayRepository {

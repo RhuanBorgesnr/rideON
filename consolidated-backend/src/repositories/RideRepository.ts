@@ -1,4 +1,4 @@
-import { prisma } from '../prisma/client';
+import { prisma } from '../lib/prisma';
 import { Ride } from '@prisma/client';
 
 export class RideRepository {

@@ -27,9 +27,10 @@ model Expense {
   amount     Float
   createdAt  DateTime @default(now())
 
-  workDay    WorkDay  @relation(fields: [workDayId], references: [id])
+  workDay    WorkDay  @relation(fields: [workDayId], references: [id], onDelete: Cascade)
 
   @@map("expenses")
+  @@index([workDayId])
 }
 
 model Ride {
@@ -44,8 +45,9 @@ model Ride {
   otherCost        Float?
   createdAt        DateTime  @default(now())
 
-  workDay          WorkDay?  @relation(fields: [workDayId], references: [id])
+  workDay          WorkDay?  @relation(fields: [workDayId], references: [id], onDelete: SetNull)
 
   @@map("rides")
   @@index([createdAt])
+  @@index([workDayId])
 }

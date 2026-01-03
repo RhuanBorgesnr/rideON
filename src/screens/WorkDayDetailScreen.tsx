@@ -14,6 +14,7 @@ import {
   Divider
 } from './WorkDayDetailScreen.styled';
 import WorkDayService from '../services/WorkDayService';
+import { handleApiError } from '../utils/apiError';
 import InputField from '../components/InputField';
 import Button from '../components/Button';
 
@@ -74,8 +75,8 @@ const WorkDayDetailScreen: React.FC<Props> = ({ route }) => {
       setExpenseType('');
       setExpenseAmount('');
       await refreshDetail();
-    } catch {
-      Alert.alert('Erro ao adicionar despesa');
+    } catch (error: any) {
+      Alert.alert('Erro', handleApiError(error));
     }
   };
 
@@ -95,8 +96,8 @@ const WorkDayDetailScreen: React.FC<Props> = ({ route }) => {
       setRideDistance('');
       setRideDuration('');
       await refreshDetail();
-    } catch {
-      Alert.alert('Erro ao adicionar corrida');
+    } catch (error: any) {
+      Alert.alert('Erro', handleApiError(error));
     }
   };
 
