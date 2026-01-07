@@ -3,8 +3,28 @@
     "name": "lucro-ride",
     "slug": "lucro-ride",
     "scheme": "lucro-ride",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "orientation": "portrait",
-    "newArchEnabled": true
+    "newArchEnabled": true,
+    "android": {
+      "package": "com.rhuanborgesnr.lucroride"
+    },
+    "ios": {
+      "bundleIdentifier": "com.rhuanborgesnr.lucroride"
+    },
+    "extra": {
+      "apiUrl": "https://rideon-production.up.railway.app/api",
+      "eas": {
+        "projectId": "a4efe53a-c2dc-4bc5-95d9-7123a0819fa5"
+      }
+    },
+    "owner": "rhuanborgesnr",
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/a4efe53a-c2dc-4bc5-95d9-7123a0819fa5"
+    }
   }
 }
