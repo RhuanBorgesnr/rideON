@@ -7,13 +7,21 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum WorkDayStatus {
+  DRAFT
+  CLOSED
+}
+
 model WorkDay {
   id           Int       @id @default(autoincrement())
-  startKm      Float
+  date         DateTime  @default(now())
+  startKm      Float?
   endKm        Float?
-  startTime    DateTime  @default(now())
+  startTime    DateTime?
   endTime      DateTime?
   totalEarning Float?
+  status       WorkDayStatus @default(DRAFT)
+  platforms    String[]
   expenses     Expense[]
   rides        Ride[]
   segments     WorkSegment[]

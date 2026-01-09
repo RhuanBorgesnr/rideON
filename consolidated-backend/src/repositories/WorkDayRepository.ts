@@ -2,27 +2,37 @@ import { prisma } from '../lib/prisma';
 import { WorkDay, Expense, Ride, WorkSegment } from '@prisma/client';
 
 export class WorkDayRepository {
-  async createWorkDay(startKm: number): Promise<WorkDay> {
+  async createDraft(data: { date: Date; startKm?: number; platforms?: string[] }): Promise<WorkDay> {
     const workDay = await prisma.workDay.create({
-      data: { startKm },
+      data: {
+        status: 'DRAFT',
+        date: data.date,
+        startKm: data.startKm,
+        platforms: data.platforms ?? []
+      }
     });
     return workDay;
   }
 
-  async findOpenWorkDay(): Promise<WorkDay | null> {
+  async findDraftByDate(date: Date): Promise<WorkDay | null> {
     return prisma.workDay.findFirst({
-      where: { endTime: null },
-      orderBy: { startTime: 'desc' }
+      where: { status: 'DRAFT', date }
     });
   }
 
-  async endWorkDay(workDayId: number, endKm: number, totalEarning: number): Promise<WorkDay | null> {
+  async update(workDayId: number, data: { startTime?: Date; endTime?: Date; startKm?: number; endKm?: number; totalEarning?: number; platforms?: string[] }): Promise<WorkDay> {
+    const updated = await prisma.workDay.update({
+      where: { id: workDayId },
+      data
+    });
+    return updated;
+  }
+
+  async close(workDayId: number): Promise<WorkDay | null> {
     const updatedWorkDay = await prisma.workDay.update({
       where: { id: workDayId },
       data: {
-        endKm,
-        totalEarning,
-        endTime: new Date()
+        status: 'CLOSED'
       }
     });
     return updatedWorkDay;
@@ -39,7 +49,7 @@ export class WorkDayRepository {
     try {
       return await prisma.workDay.findMany({
         include: { expenses: true },
-        orderBy: { startTime: 'desc' }
+        orderBy: { date: 'desc' }
       });
     } catch {
       return [];

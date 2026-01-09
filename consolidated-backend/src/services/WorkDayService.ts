@@ -34,16 +34,40 @@ export class WorkDayService {
     this.generalExpenseRepository = new GeneralExpenseRepository();
   }
 
-  async startWorkDay(startKm: number) {
-    const open = await this.workDayRepository.findOpenWorkDay();
-    const machine = new WorkDayMachine(open ? WorkDayState.Active : WorkDayState.Idle);
-    const result = machine.transition({ type: 'START', payload: { startKm, startTime: new Date() } });
-    const create = result.actions.find(a => a.kind === 'CREATE_WORKDAY');
-    if (!create) {
-      throw new Error('UNKNOWN_EVENT');
+  private isFinalizeWorkdayAction(
+    action: { kind: string }
+  ): action is { kind: 'FINALIZE_WORKDAY'; endKm: number; totalEarning: number; endTime: Date } {
+    return action.kind === 'FINALIZE_WORKDAY';
+  }
+
+  async createWorkDayDraft(date?: Date) {
+    const targetDate = date ?? new Date();
+    const existing = await this.workDayRepository.findDraftByDate(targetDate);
+    if (existing) {
+      return existing;
     }
-    const workDay = await this.workDayRepository.createWorkDay(create.startKm);
-    return workDay;
+    return this.workDayRepository.createDraft({ date: targetDate });
+  }
+
+  async updateWorkDayDraft(
+    workDayId: number,
+    data: { startTime?: Date; endTime?: Date; startKm?: number; endKm?: number; totalEarning?: number; platforms?: string[] }
+  ) {
+    const workDay = await this.workDayRepository.getWorkDayById(workDayId);
+    if (!workDay) throw new Error('WORKDAY_NOT_FOUND');
+    if (workDay.status !== 'DRAFT') {
+      throw new Error('WORKDAY_NOT_EDITABLE');
+    }
+    return this.workDayRepository.update(workDayId, data);
+  }
+
+  async startWorkDay(data: { startKm: number; platforms?: string[] }) {
+    const draft = await this.createWorkDayDraft();
+    return this.workDayRepository.update(draft.id, {
+      startKm: data.startKm,
+      startTime: new Date(),
+      platforms: data.platforms ?? []
+    });
   }
 
   async endWorkDay(workDayId: number, endKm: number, totalEarning: number) {
@@ -51,14 +75,22 @@ export class WorkDayService {
     if (!current) {
       throw new Error('WORKDAY_NOT_FOUND');
     }
-    const state = current.endTime ? WorkDayState.Closed : WorkDayState.Active;
-    const machine = new WorkDayMachine(state, { startKm: current.startKm, startTime: new Date(current.startTime) });
-    const result = machine.transition({ type: 'END', payload: { endKm, totalEarning, endTime: new Date() } });
-    const finalize = result.actions.find(a => a.kind === 'FINALIZE_WORKDAY');
+    if (current.status !== 'DRAFT') {
+      throw new Error('WORKDAY_ALREADY_CLOSED');
+    }
+    const state = WorkDayState.Draft;
+    const machine = new WorkDayMachine(state, { startKm: current.startKm, startTime: current.startTime ?? null });
+    const result = machine.transition({ type: 'CLOSE', payload: { endKm, totalEarning, endTime: new Date() } });
+    const finalize = result.actions.find(a => this.isFinalizeWorkdayAction(a));
     if (!finalize) {
       throw new Error('UNKNOWN_EVENT');
     }
-    const workDay = await this.workDayRepository.endWorkDay(workDayId, finalize.endKm, finalize.totalEarning);
+    await this.workDayRepository.update(workDayId, {
+      endKm: finalize.endKm,
+      totalEarning: finalize.totalEarning,
+      endTime: finalize.endTime
+    });
+    const workDay = await this.workDayRepository.close(workDayId);
     return workDay;
   }
 
@@ -67,7 +99,10 @@ export class WorkDayService {
     if (!current) {
       throw new Error('WORKDAY_NOT_FOUND');
     }
-    const state = current.endTime ? WorkDayState.Closed : WorkDayState.Active;
+    if (current.status === 'CLOSED') {
+      throw new Error('WORKDAY_ALREADY_CLOSED');
+    }
+    const state = WorkDayState.Draft;
     const machine = new WorkDayMachine(state, { startKm: current.startKm, startTime: new Date(current.startTime) });
     const result = machine.transition({ type: 'ADD_EXPENSE', payload: { amount } });
     const action = result.actions.find(a => a.kind === 'RECORD_EXPENSE');
@@ -83,8 +118,8 @@ export class WorkDayService {
     if (!current) {
       throw new Error('WORKDAY_NOT_FOUND');
     }
-    if (current.endTime) {
-      throw new Error('WORKDAY_ALREADY_ENDED');
+    if (current.status === 'CLOSED') {
+      throw new Error('WORKDAY_ALREADY_CLOSED');
     }
     if (!(distanceKm > 0 && distanceKm <= 1000)) {
       throw new Error('INVALID_SEGMENT_DISTANCE');
@@ -103,12 +138,15 @@ export class WorkDayService {
 
   async getDashboard(): Promise<DashboardSummary> {
     const workDays = await this.workDayRepository.listWorkDays();
-    const history = workDays.map(workDay => {
-      const totalExpenses = workDay.expenses.reduce((sum, exp) => sum + exp.amount, 0);
-      const netProfit = workDay.totalEarning !== null ? workDay.totalEarning - totalExpenses : 0;
-      const date = new Date(workDay.startTime).toISOString().slice(0, 10);
-      return { id: workDay.id, date, netProfit };
-    }).sort((a, b) => (a.date < b.date ? 1 : -1));
+    const history = workDays
+      .filter(wd => wd.status === 'CLOSED')
+      .map(workDay => {
+        const totalExpenses = workDay.expenses.reduce((sum, exp) => sum + exp.amount, 0);
+        const netProfit = workDay.totalEarning !== null ? workDay.totalEarning - totalExpenses : 0;
+        const date = new Date(workDay.date).toISOString().slice(0, 10);
+        return { id: workDay.id, date, netProfit };
+      })
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
     const todayKey = new Date().toISOString().slice(0, 10);
     const todayProfit = history.filter(h => h.date === todayKey).reduce((sum, h) => sum + h.netProfit, 0);
     return { todayProfit, history };

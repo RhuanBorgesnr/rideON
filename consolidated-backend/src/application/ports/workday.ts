@@ -1,7 +1,8 @@
 export interface IWorkDayRepository {
-  createWorkDay(startKm: number): Promise<any>;
-  findOpenWorkDay(): Promise<any | null>;
-  endWorkDay(workDayId: number, endKm: number, totalEarning: number): Promise<any | null>;
+  createDraft(data: { date: Date; startKm?: number; platforms?: string[] }): Promise<any>;
+  findDraftByDate(date: Date): Promise<any | null>;
+  update(workDayId: number, data: { startTime?: Date; endTime?: Date; startKm?: number; endKm?: number; totalEarning?: number; platforms?: string[] }): Promise<any>;
+  close(workDayId: number): Promise<any>;
   getWorkDayById(workDayId: number): Promise<any | null>;
   listWorkDays(): Promise<any[]>;
 }

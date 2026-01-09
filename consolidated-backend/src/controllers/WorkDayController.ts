@@ -7,17 +7,34 @@ const workDayService = new WorkDayService();
 // Endpoint to start work day
 router.post('/workday/start', async (req: Request, res: Response) => {
   try {
-    const { startKm } = req.body;
+    const { startKm, platforms } = req.body;
     if (startKm === undefined) {
       return res.status(400).json({ error: 'startKm is required' });
     }
 
-    const workDay = await workDayService.startWorkDay(Number(startKm));
+    const workDay = await workDayService.startWorkDay({ startKm: Number(startKm), platforms: Array.isArray(platforms) ? platforms.map(String) : [] });
+    console.log(workDay);
     return res.status(201).json(workDay);
   } catch (error: any) {
-    if (error?.message === 'OPEN_DAY_EXISTS') {
-      return res.status(409).json({ error: 'An open workday already exists' });
+    console.log(error);
+    if (error?.message === 'WORKDAY_NOT_EDITABLE') {
+      return res.status(409).json({ error: 'Workday not editable' });
     }
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Endpoint to create draft work day
+router.post('/workday/draft', async (req: Request, res: Response) => {
+  try {
+    const { startKm, platforms } = req.body;
+    const wd = await workDayService.createWorkDayDraft();
+    const workDay = await workDayService.updateWorkDayDraft(wd.id, {
+      startKm: startKm !== undefined ? Number(startKm) : undefined,
+      platforms: Array.isArray(platforms) ? platforms.map(String) : []
+    });
+    return res.status(201).json(workDay);
+  } catch (error: any) {
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -37,8 +54,8 @@ router.post('/workday/end', async (req: Request, res: Response) => {
     if (msg === 'WORKDAY_NOT_FOUND') {
       return res.status(404).json({ error: 'Workday not found' });
     }
-    if (msg === 'WORKDAY_ALREADY_ENDED') {
-      return res.status(409).json({ error: 'Workday already ended' });
+    if (msg === 'WORKDAY_ALREADY_CLOSED') {
+      return res.status(409).json({ error: 'Workday already closed' });
     }
     if (msg === 'INVALID_END_KM') {
       return res.status(400).json({ error: 'endKm must be greater than startKm' });
@@ -74,8 +91,8 @@ router.post('/expense', async (req: Request, res: Response) => {
     if (msg === 'WORKDAY_NOT_FOUND') {
       return res.status(404).json({ error: 'Workday not found' });
     }
-    if (msg === 'WORKDAY_ALREADY_ENDED') {
-      return res.status(409).json({ error: 'Workday already ended' });
+    if (msg === 'WORKDAY_ALREADY_CLOSED') {
+      return res.status(409).json({ error: 'Workday already closed' });
     }
     if (msg === 'INVALID_EXPENSE_AMOUNT') {
       return res.status(400).json({ error: 'amount must be greater than zero' });
@@ -125,8 +142,8 @@ router.post('/segment', async (req: Request, res: Response) => {
     if (msg === 'WORKDAY_NOT_FOUND') {
       return res.status(404).json({ error: 'Workday not found' });
     }
-    if (msg === 'WORKDAY_ALREADY_ENDED') {
-      return res.status(409).json({ error: 'Workday already ended' });
+    if (msg === 'WORKDAY_ALREADY_CLOSED') {
+      return res.status(409).json({ error: 'Workday already closed' });
     }
     if (msg === 'INVALID_SEGMENT_DISTANCE') {
       return res.status(400).json({ error: 'distanceKm must be between 0 and 1000' });

@@ -1,7 +1,6 @@
 export enum WorkDayState {
-  Idle = 'Idle',
-  Active = 'Active',
-  Closed = 'Closed',
+  Draft = 'DRAFT',
+  Closed = 'CLOSED',
 }
 
 export type WorkDayContext = {
@@ -12,9 +11,9 @@ export type WorkDayContext = {
   totalEarning: number | null;
 };
 
-export type StartEvent = {
-  type: 'START';
-  payload: { startKm: number; startTime: Date };
+export type UpdateInfoEvent = {
+  type: 'UPDATE_INFO';
+  payload: { startKm?: number; startTime?: Date; endTime?: Date; endKm?: number; totalEarning?: number };
 };
 
 export type AddExpenseEvent = {
@@ -27,15 +26,15 @@ export type AddRideEvent = {
   payload: { earning: number; distanceKm: number; durationMinutes: number };
 };
 
-export type EndEvent = {
-  type: 'END';
+export type CloseEvent = {
+  type: 'CLOSE';
   payload: { endKm: number; totalEarning: number; endTime: Date };
 };
 
-export type WorkDayEvent = StartEvent | AddExpenseEvent | AddRideEvent | EndEvent;
+export type WorkDayEvent = UpdateInfoEvent | AddExpenseEvent | AddRideEvent | CloseEvent;
 
 export type DomainAction =
-  | { kind: 'CREATE_WORKDAY'; startKm: number; startTime: Date }
+  | { kind: 'UPDATE_DRAFT_INFO'; startKm?: number; startTime?: Date; endTime?: Date; endKm?: number; totalEarning?: number }
   | { kind: 'RECORD_EXPENSE'; amount: number }
   | { kind: 'RECORD_RIDE'; earning: number; distanceKm: number; durationMinutes: number }
   | { kind: 'FINALIZE_WORKDAY'; endKm: number; totalEarning: number; endTime: Date };
@@ -48,12 +47,12 @@ export type TransitionResult = {
 
 /**
  * WorkDay state machine: pure domain logic to validate lifecycle transitions and emit actions.
- * States: Idle -> Active -> Closed
+ * States: Draft -> Closed
  * Events:
- *  - START: Allowed only from Idle, requires startKm > 0 and valid startTime
- *  - ADD_EXPENSE: Allowed only in Active, requires amount > 0
- *  - ADD_RIDE: Allowed only in Active, requires earning >= 0, distanceKm > 0, durationMinutes > 0
- *  - END: Allowed only in Active, requires endKm > startKm, totalEarning >= 0, endTime > startTime
+ *  - UPDATE_INFO: Allowed only in Draft, basic validations when present
+ *  - ADD_EXPENSE: Allowed only in Draft, requires amount > 0
+ *  - ADD_RIDE: Allowed only in Draft, requires earning >= 0, distanceKm > 0, durationMinutes > 0
+ *  - CLOSE: Allowed only in Draft, requires endKm > startKm, totalEarning >= 0, endTime > startTime
  */
 export class WorkDayMachine {
   private state: WorkDayState;
@@ -75,33 +74,44 @@ export class WorkDayMachine {
   }
 
   transition(event: WorkDayEvent): TransitionResult {
-    if (event.type === 'START') {
-      if (this.state !== WorkDayState.Idle) {
-        throw new Error('OPEN_DAY_EXISTS');
+    if (event.type === 'UPDATE_INFO') {
+      if (this.state !== WorkDayState.Draft) {
+        throw new Error('WORKDAY_NOT_DRAFT');
       }
-      const { startKm, startTime } = event.payload;
-      if (typeof startKm !== 'number' || startKm <= 0) {
+      const { startKm, startTime, endTime, endKm, totalEarning } = event.payload;
+      if (startKm !== undefined && (typeof startKm !== 'number' || startKm <= 0)) {
         throw new Error('INVALID_START_KM');
       }
-      if (!(startTime instanceof Date) || Number.isNaN(startTime.getTime())) {
+      if (endKm !== undefined && typeof endKm !== 'number') {
+        throw new Error('INVALID_END_KM');
+      }
+      if (totalEarning !== undefined && (typeof totalEarning !== 'number' || totalEarning < 0)) {
+        throw new Error('INVALID_TOTAL_EARNING');
+      }
+      if (startTime !== undefined && (!(startTime instanceof Date) || Number.isNaN(startTime.getTime()))) {
         throw new Error('INVALID_START_TIME');
       }
-      this.state = WorkDayState.Active;
-      this.context.startKm = startKm;
-      this.context.startTime = startTime;
+      if (endTime !== undefined && (!(endTime instanceof Date) || Number.isNaN(endTime.getTime()))) {
+        throw new Error('INVALID_END_TIME');
+      }
+      if (startKm !== undefined) this.context.startKm = startKm;
+      if (startTime !== undefined) this.context.startTime = startTime;
+      if (endKm !== undefined) this.context.endKm = endKm;
+      if (endTime !== undefined) this.context.endTime = endTime;
+      if (totalEarning !== undefined) this.context.totalEarning = totalEarning;
       return {
         state: this.state,
         context: this.context,
-        actions: [{ kind: 'CREATE_WORKDAY', startKm, startTime }],
+        actions: [{ kind: 'UPDATE_DRAFT_INFO', startKm, startTime, endKm, endTime, totalEarning }],
       };
     }
 
     if (event.type === 'ADD_EXPENSE') {
-      if (this.state !== WorkDayState.Active) {
+      if (this.state !== WorkDayState.Draft) {
         if (this.state === WorkDayState.Closed) {
-          throw new Error('WORKDAY_ALREADY_ENDED');
+          throw new Error('WORKDAY_ALREADY_CLOSED');
         }
-        throw new Error('WORKDAY_NOT_STARTED');
+        throw new Error('WORKDAY_NOT_DRAFT');
       }
       const { amount } = event.payload;
       if (typeof amount !== 'number' || amount <= 0) {
@@ -115,11 +125,11 @@ export class WorkDayMachine {
     }
 
     if (event.type === 'ADD_RIDE') {
-      if (this.state !== WorkDayState.Active) {
+      if (this.state !== WorkDayState.Draft) {
         if (this.state === WorkDayState.Closed) {
-          throw new Error('WORKDAY_ALREADY_ENDED');
+          throw new Error('WORKDAY_ALREADY_CLOSED');
         }
-        throw new Error('WORKDAY_NOT_STARTED');
+        throw new Error('WORKDAY_NOT_DRAFT');
       }
       const { earning, distanceKm, durationMinutes } = event.payload;
       if (typeof earning !== 'number' || earning < 0) {
@@ -138,17 +148,17 @@ export class WorkDayMachine {
       };
     }
 
-    if (event.type === 'END') {
-      if (this.state !== WorkDayState.Active) {
+    if (event.type === 'CLOSE') {
+      if (this.state !== WorkDayState.Draft) {
         if (this.state === WorkDayState.Closed) {
-          throw new Error('WORKDAY_ALREADY_ENDED');
+          throw new Error('WORKDAY_ALREADY_CLOSED');
         }
-        throw new Error('WORKDAY_NOT_STARTED');
+        throw new Error('WORKDAY_NOT_DRAFT');
       }
       const { endKm, totalEarning, endTime } = event.payload;
       const startKm = this.context.startKm;
       const startTime = this.context.startTime;
-      if (typeof endKm !== 'number' || typeof startKm !== 'number' || endKm <= startKm) {
+      if (typeof endKm !== 'number' || typeof startKm !== 'number' || endKm < startKm) {
         throw new Error('INVALID_END_KM');
       }
       if (typeof totalEarning !== 'number' || totalEarning < 0) {
@@ -171,4 +181,3 @@ export class WorkDayMachine {
     throw new Error('UNKNOWN_EVENT');
   }
 }
-
