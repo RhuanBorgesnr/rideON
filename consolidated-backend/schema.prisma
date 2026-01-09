@@ -16,6 +16,7 @@ model WorkDay {
   totalEarning Float?
   expenses     Expense[]
   rides        Ride[]
+  segments     WorkSegment[]
 
   @@map("work_days")
 }
@@ -25,6 +26,8 @@ model Expense {
   workDayId  Int
   type       String
   amount     Float
+  note       String?
+  occurredAt DateTime?
   createdAt  DateTime @default(now())
 
   workDay    WorkDay  @relation(fields: [workDayId], references: [id], onDelete: Cascade)
@@ -50,4 +53,30 @@ model Ride {
   @@map("rides")
   @@index([createdAt])
   @@index([workDayId])
+}
+
+model WorkSegment {
+  id         Int      @id @default(autoincrement())
+  workDayId  Int
+  origin     String
+  destination String
+  distanceKm Float
+  createdAt  DateTime @default(now())
+
+  workDay    WorkDay  @relation(fields: [workDayId], references: [id], onDelete: Cascade)
+
+  @@map("work_segments")
+  @@index([workDayId])
+}
+
+model GeneralExpense {
+  id         Int      @id @default(autoincrement())
+  type       String
+  amount     Float
+  note       String?
+  occurredAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@map("general_expenses")
+  @@index([createdAt])
 }

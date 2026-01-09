@@ -11,8 +11,24 @@ const endWorkDay = async (workDayId: number, endKm: number, totalEarning: number
   return response.data;
 };
 
-const addExpense = async (workDayId: number, type: string, amount: number) => {
-  const response = await api.post('/expense', { workDayId, type, amount });
+const addExpense = async (workDayId: number, type: string, amount: number, note?: string, occurredAt?: string) => {
+  const payload: any = { workDayId, type, amount };
+  if (note !== undefined) payload.note = note;
+  if (occurredAt !== undefined) payload.occurredAt = occurredAt;
+  const response = await api.post('/expense', payload);
+  return response.data;
+};
+
+const addGeneralExpense = async (type: string, amount: number, note?: string, occurredAt?: string) => {
+  const payload: any = { type, amount };
+  if (note !== undefined) payload.note = note;
+  if (occurredAt !== undefined) payload.occurredAt = occurredAt;
+  const response = await api.post('/expense/general', payload);
+  return response.data;
+};
+
+const addSegment = async (workDayId: number, origin: string, destination: string, distanceKm: number) => {
+  const response = await api.post('/segment', { workDayId, origin, destination, distanceKm });
   return response.data;
 };
 
@@ -54,6 +70,8 @@ export default {
   startWorkDay,
   endWorkDay,
   addExpense,
+  addGeneralExpense,
+  addSegment,
   addRide,
   getWorkDayDetail,
   getDashboard,

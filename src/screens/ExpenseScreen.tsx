@@ -9,11 +9,11 @@ import { handleApiError } from '../utils/apiError';
 
 interface ExpenseScreenProps {
   navigation: any;
-  route: { params: { workDayId: number } };
+  route: { params?: { workDayId?: number } };
 }
 
 const ExpenseScreen: React.FC<ExpenseScreenProps> = ({ route, navigation }) => {
-  const { workDayId } = route.params;
+  const workDayId = route.params?.workDayId;
   const [type, setType] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [note, setNote] = useState<string>('');
@@ -29,7 +29,11 @@ const ExpenseScreen: React.FC<ExpenseScreenProps> = ({ route, navigation }) => {
       return;
     }
     try {
-      await WorkDayService.addExpense(workDayId, type, Number(amount));
+      if (workDayId !== undefined) {
+        await WorkDayService.addExpense(workDayId, type, Number(amount), note || undefined, dateStr || undefined);
+      } else {
+        await WorkDayService.addGeneralExpense(type, Number(amount), note || undefined, dateStr || undefined);
+      }
       Alert.alert('Sucesso', 'Despesa adicionada');
       navigation.goBack();
     } catch (error: any) {

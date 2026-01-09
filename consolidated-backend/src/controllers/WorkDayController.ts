@@ -56,12 +56,18 @@ router.post('/workday/end', async (req: Request, res: Response) => {
 // Endpoint to register an expense
 router.post('/expense', async (req: Request, res: Response) => {
   try {
-    const { workDayId, type, amount } = req.body;
+    const { workDayId, type, amount, note, occurredAt } = req.body;
     if (workDayId === undefined || !type || amount === undefined) {
       return res.status(400).json({ error: 'workDayId, type and amount are required' });
     }
 
-    const expense = await workDayService.addExpense(Number(workDayId), type, Number(amount));
+    const expense = await workDayService.addExpense(
+      Number(workDayId),
+      type,
+      Number(amount),
+      note !== undefined ? String(note) : undefined,
+      occurredAt ? new Date(occurredAt) : undefined
+    );
     return res.status(201).json(expense);
   } catch (error: any) {
     const msg = error?.message;
@@ -73,6 +79,57 @@ router.post('/expense', async (req: Request, res: Response) => {
     }
     if (msg === 'INVALID_EXPENSE_AMOUNT') {
       return res.status(400).json({ error: 'amount must be greater than zero' });
+    }
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+router.post('/expense/general', async (req: Request, res: Response) => {
+  try {
+    const { type, amount, note, occurredAt } = req.body;
+    if (!type || amount === undefined) {
+      return res.status(400).json({ error: 'type and amount are required' });
+    }
+    const expense = await workDayService.addGeneralExpense(
+      String(type),
+      Number(amount),
+      note !== undefined ? String(note) : undefined,
+      occurredAt ? new Date(occurredAt) : undefined
+    );
+    return res.status(201).json(expense);
+  } catch (error: any) {
+    const msg = error?.message;
+    if (msg === 'INVALID_EXPENSE_AMOUNT') {
+      return res.status(400).json({ error: 'amount must be greater than zero' });
+    }
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Endpoint to register a segment
+router.post('/segment', async (req: Request, res: Response) => {
+  try {
+    const { workDayId, origin, destination, distanceKm } = req.body;
+    if (workDayId === undefined || !origin || !destination || distanceKm === undefined) {
+      return res.status(400).json({ error: 'workDayId, origin, destination and distanceKm are required' });
+    }
+    const segment = await workDayService.addSegment(
+      Number(workDayId),
+      String(origin),
+      String(destination),
+      Number(distanceKm)
+    );
+    return res.status(201).json(segment);
+  } catch (error: any) {
+    const msg = error?.message;
+    if (msg === 'WORKDAY_NOT_FOUND') {
+      return res.status(404).json({ error: 'Workday not found' });
+    }
+    if (msg === 'WORKDAY_ALREADY_ENDED') {
+      return res.status(409).json({ error: 'Workday already ended' });
+    }
+    if (msg === 'INVALID_SEGMENT_DISTANCE') {
+      return res.status(400).json({ error: 'distanceKm must be between 0 and 1000' });
     }
     return res.status(500).json({ error: 'Internal Server Error' });
   }

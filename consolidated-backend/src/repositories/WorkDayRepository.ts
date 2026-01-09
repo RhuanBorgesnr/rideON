@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-import { WorkDay, Expense, Ride } from '@prisma/client';
+import { WorkDay, Expense, Ride, WorkSegment } from '@prisma/client';
 
 export class WorkDayRepository {
   async createWorkDay(startKm: number): Promise<WorkDay> {
@@ -28,10 +28,10 @@ export class WorkDayRepository {
     return updatedWorkDay;
   }
 
-  async getWorkDayById(workDayId: number): Promise<(WorkDay & { expenses: Expense[]; rides: Ride[] }) | null> {
+  async getWorkDayById(workDayId: number): Promise<(WorkDay & { expenses: Expense[]; rides: Ride[]; segments: WorkSegment[] }) | null> {
     return prisma.workDay.findUnique({
       where: { id: workDayId },
-      include: { expenses: true, rides: true }
+      include: { expenses: true, rides: true, segments: true }
     });
   }
 

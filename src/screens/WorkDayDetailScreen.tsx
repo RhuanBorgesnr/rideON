@@ -38,10 +38,12 @@ interface WorkDayDetail {
   totalEarning: number | null;
   totalExpenses: number;
   kmTravelled: number | null;
+  kmSegments: number;
   hoursWorked: number | null;
   netProfit: number | null;
   expenses: { id: number; type: string; amount: number }[];
   rides: { id: number; earning: number; distanceKm: number; durationMinutes: number }[];
+  segments: { id: number; origin: string; destination: string; distanceKm: number }[];
 }
 
 const WorkDayDetailScreen: React.FC<Props> = ({ route }) => {
@@ -52,6 +54,9 @@ const WorkDayDetailScreen: React.FC<Props> = ({ route }) => {
   const [rideEarning, setRideEarning] = useState('');
   const [rideDistance, setRideDistance] = useState('');
   const [rideDuration, setRideDuration] = useState('');
+  const [segOrigin, setSegOrigin] = useState('');
+  const [segDestination, setSegDestination] = useState('');
+  const [segDistance, setSegDistance] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -101,6 +106,22 @@ const WorkDayDetailScreen: React.FC<Props> = ({ route }) => {
     }
   };
 
+  const onAddSegment = async () => {
+    if (!segOrigin || !segDestination || !segDistance) {
+      Alert.alert('Preencha origem, destino e distância');
+      return;
+    }
+    try {
+      await WorkDayService.addSegment(workDay.id, segOrigin, segDestination, Number(segDistance));
+      setSegOrigin('');
+      setSegDestination('');
+      setSegDistance('');
+      await refreshDetail();
+    } catch (error: any) {
+      Alert.alert('Erro', handleApiError(error));
+    }
+  };
+
   return (
     <Container>
       <Content>
@@ -119,6 +140,7 @@ const WorkDayDetailScreen: React.FC<Props> = ({ route }) => {
               <Row><Label>Km Inicial</Label><Value>{detail.startKm}</Value></Row>
               <Row><Label>Km Final</Label><Value>{detail.endKm ?? '-'}</Value></Row>
               <Row><Label>Km Percorridos</Label><Value>{detail.kmTravelled ?? '-'}</Value></Row>
+              <Row><Label>Km por Trechos</Label><Value>{Number(detail.kmSegments).toFixed(2)}</Value></Row>
               <Row>
                 <Label>Ganhos Totais</Label>
                 <Value>R$ {(detail.totalEarning ?? 0).toFixed(2)}</Value>
@@ -184,6 +206,34 @@ const WorkDayDetailScreen: React.FC<Props> = ({ route }) => {
                 keyboardType="numeric"
               />
               <Button title="Adicionar corrida" onPress={onAddRide} />
+            </SectionCard>
+
+            <SectionCard>
+              <SectionTitle>Trechos</SectionTitle>
+              {detail.segments.map((s) => (
+                <Row key={`seg-${s.id}`}>
+                  <Label>{s.origin} → {s.destination}</Label>
+                  <Value>{Number(s.distanceKm).toFixed(2)} km</Value>
+                </Row>
+              ))}
+              <Divider />
+              <InputField
+                placeholder="Origem"
+                value={segOrigin}
+                onChangeText={setSegOrigin}
+              />
+              <InputField
+                placeholder="Destino"
+                value={segDestination}
+                onChangeText={setSegDestination}
+              />
+              <InputField
+                placeholder="Distância (km)"
+                value={segDistance}
+                onChangeText={setSegDistance}
+                keyboardType="decimal-pad"
+              />
+              <Button title="Adicionar trecho" onPress={onAddSegment} />
             </SectionCard>
           </>
         )}
